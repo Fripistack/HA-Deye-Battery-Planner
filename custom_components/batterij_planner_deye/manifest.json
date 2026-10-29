@@ -1,0 +1,13 @@
+{
+  "domain": "batterij_planner_deye",
+  "name": "Batterij Planner Deye",
+  "codeowners": ["@Fripistack"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Fripistack/HA-Deye-Battery-Planner",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/Fripistack/HA-Deye-Battery-Planner/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

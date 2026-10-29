@@ -1,0 +1,545 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery Planner Deye – data sources",
+        "description": "Select the sensors the planner reads. Suggested entities are pre-filled when they exist.\n\nThe planner uses today's and tomorrow's 15-minute Frank Energie prices, the solar forecast and your learned consumption to choose for every quarter whether the battery should run in self-consumption, hold, charge or discharge, and at 33 %, 66 % or 100 % power.",
+        "data": {
+          "soc_entity": "Battery SOC",
+          "prijs_vandaag_entity": "Frank prices – today",
+          "prijs_morgen_entity": "Frank prices – tomorrow",
+          "pv_rest_vandaag_entity": "Solar forecast – remaining today",
+          "pv_morgen_entity": "Solar forecast – tomorrow",
+          "solcast_vandaag_entity": "Solcast forecast – today (optional)",
+          "solcast_morgen_entity": "Solcast forecast – tomorrow (optional)"
+        },
+        "data_description": {
+          "soc_entity": "State of charge of the shared battery bank in %. Solarman (Deye): **Battery** or **Battery SOC** of the master inverter.",
+          "prijs_vandaag_entity": "Frank Quarter Prices sensor with today's 15-minute prices in its `prices` attribute (e.g. `sensor.frank_prices_today`). Not the current-price sensor.",
+          "prijs_morgen_entity": "Frank Quarter Prices sensor with tomorrow's prices (e.g. `sensor.frank_prices_tomorrow`). Frank publishes these around 13:00–14:00; as soon as they arrive the plan is recalculated for the full horizon.",
+          "pv_rest_vandaag_entity": "Expected solar production for the rest of today in kWh or Wh. Forecast.Solar: **Estimated energy production - remaining today**. Spread over the remaining quarters using the sun's position.",
+          "pv_morgen_entity": "Expected solar production for tomorrow in kWh or Wh. Forecast.Solar: **Estimated energy production - tomorrow**.",
+          "solcast_vandaag_entity": "Only if you use Solcast: the sensor with the `detailedForecast` attribute for today. When filled in, Solcast is used instead of the Forecast.Solar sensors above.",
+          "solcast_morgen_entity": "Only if you use Solcast: the sensor with the `detailedForecast` attribute for tomorrow."
+        }
+      },
+      "meting": {
+        "title": "Battery Planner Deye – P1 meter and power sensors",
+        "description": "The P1 meter (DSMR / HomeWizard) measures what really goes in and out of your grid connection. Together with the solar and battery power of the Deye inverters, the planner calculates the household consumption it learns per hour, and the real cost per quarter.",
+        "data": {
+          "p1_vermogen_entity": "P1 – power consumption (import)",
+          "p1_teruglever_vermogen_entity": "P1 – power production (export)",
+          "p1_afname_kwh_entities": "P1 – energy consumption meters (kWh)",
+          "p1_teruglever_kwh_entities": "P1 – energy production meters (kWh)",
+          "load_entities": "Household load power (optional)",
+          "pv_vermogen_entities": "Solar power of the inverters",
+          "accu_vermogen_entities": "Battery power of the inverters"
+        },
+        "data_description": {
+          "p1_vermogen_entity": "Current import power in W or kW (DSMR: **Power consumption**). If your meter has a single net-power sensor (import positive, export negative), choose that one and leave the export field empty.",
+          "p1_teruglever_vermogen_entity": "Current export power in W or kW (DSMR: **Power production**). Leave empty if the sensor above is already net power.",
+          "p1_afname_kwh_entities": "Meter readings for imported energy (DSMR: **Energy consumption (tarif 1)** and **(tarif 2)**; select both). Used to calculate the real cost with the Frank price of each quarter. Optional.",
+          "p1_teruglever_kwh_entities": "Meter readings for exported energy (DSMR: **Energy production (tarif 1)** and **(tarif 2)**).",
+          "load_entities": "Only if you prefer the inverters' own measurement: Solarman **Load Power** of each inverter (summed). Leave empty to calculate household consumption from the P1 meter: grid + solar + battery.",
+          "pv_vermogen_entities": "Solarman **PV Power** of each Deye inverter (W). Summed.",
+          "accu_vermogen_entities": "Solarman **Battery Power** of each Deye inverter (W, positive = discharging, negative = charging). Summed."
+        }
+      },
+      "apparaten": {
+        "title": "Battery Planner Deye – inverters",
+        "description": "Choose the Deye inverter device(s) from the Solarman integration. With two SUN-12K-SG05LP3 in parallel, choose the master as inverter 1 and the slave as inverter 2. On the next screen the planner pre-fills the entities it finds on these devices.",
+        "data": {
+          "omv1_device": "Inverter 1 (master)",
+          "omv2_device": "Inverter 2 (optional)"
+        },
+        "data_description": {
+          "omv1_device": "The Solarman device of the first Deye inverter.",
+          "omv2_device": "The Solarman device of the second inverter in a parallel system. Leave empty with a single inverter."
+        }
+      },
+      "omvormer": {
+        "title": "Battery Planner Deye – inverter entities (Solarman)",
+        "description": "Nothing is written to the inverters until you switch on **Control inverter** on the Battery Planner Deye device. Values are only written when they change.",
+        "sections": {
+          "omvormer_1": {
+            "name": "Inverter 1",
+            "description": "Entities found on the device are pre-filled. Check them; tip: Developer tools → States, filter on `program_`.",
+            "data": {
+              "programma_soc": "Program 1–6 SOC",
+              "programma_vermogen": "Program 1–6 Power",
+              "programma_laden": "Program 1–6 Charging",
+              "werkmodus": "Work Mode",
+              "time_of_use": "Time of Use (optional)",
+              "solar_sell": "Export Surplus / Solar Sell (optional)",
+              "netlaadstroom": "Battery Grid Charging Current (optional)"
+            },
+            "data_description": {
+              "programma_soc": "All six **Program N SOC** number entities. The planner writes the same target SOC in all six, so the program times do not matter and are left as they are.",
+              "programma_vermogen": "All six **Program N Power** number entities (maximum battery discharge power in that program).",
+              "programma_laden": "All six **Program N Charging** selects (Disabled / Grid / Generator / Both). Set to Grid while the plan charges from the grid.",
+              "werkmodus": "**Work Mode** select. *Zero Export To CT* for self-consumption, charge and hold; *Export First* while discharging to the grid.",
+              "time_of_use": "**Time of Use** select or switch. The planner makes sure it is enabled, otherwise the programs are ignored.",
+              "solar_sell": "**Export Surplus** (Solar Sell) switch. Switched off during quarters with a negative feed-in price, if that option is on.",
+              "netlaadstroom": "**Battery Grid Charging Current** (A). Sets the charge power step (33 / 66 / 100 %) while charging from the grid."
+            }
+          },
+          "omvormer_2": {
+            "name": "Inverter 2",
+            "description": "Entities found on the device are pre-filled. Check them; tip: Developer tools → States, filter on `program_`.",
+            "data": {
+              "programma_soc": "Program 1–6 SOC",
+              "programma_vermogen": "Program 1–6 Power",
+              "programma_laden": "Program 1–6 Charging",
+              "werkmodus": "Work Mode",
+              "time_of_use": "Time of Use (optional)",
+              "solar_sell": "Export Surplus / Solar Sell (optional)",
+              "netlaadstroom": "Battery Grid Charging Current (optional)"
+            },
+            "data_description": {
+              "programma_soc": "All six **Program N SOC** number entities. The planner writes the same target SOC in all six, so the program times do not matter and are left as they are.",
+              "programma_vermogen": "All six **Program N Power** number entities (maximum battery discharge power in that program).",
+              "programma_laden": "All six **Program N Charging** selects (Disabled / Grid / Generator / Both). Set to Grid while the plan charges from the grid.",
+              "werkmodus": "**Work Mode** select. *Zero Export To CT* for self-consumption, charge and hold; *Export First* while discharging to the grid.",
+              "time_of_use": "**Time of Use** select or switch. The planner makes sure it is enabled, otherwise the programs are ignored.",
+              "solar_sell": "**Export Surplus** (Solar Sell) switch. Switched off during quarters with a negative feed-in price, if that option is on.",
+              "netlaadstroom": "**Battery Grid Charging Current** (A). Sets the charge power step (33 / 66 / 100 %) while charging from the grid."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "niet_gevonden": "Entity not found.",
+      "geen_getal": "This sensor does not have a numeric value. Choose the Battery SOC sensor (%).",
+      "geen_prijzen": "This sensor has no 'prices' attribute. Choose the Frank Quarter Prices sensor for today's prices (e.g. sensor.frank_prices_today), not the current-price sensor.",
+      "soc_bereik": "Minimum SOC must be lower than maximum SOC.",
+      "omvormer_onvolledig": "Inverter 1 needs at least the Program SOC entities and the Work Mode.",
+      "ev_modus_nodig": "Choose the evcc charge mode entity to use the car charger module.",
+      "wp_bereik": "Minimum setpoint must be lower than maximum setpoint.",
+      "wp_setpoint_nodig": "Choose the setpoint or SG Ready entity to use the heat pump module."
+    },
+    "abort": {
+      "already_configured": "Battery Planner Deye is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Battery Planner Deye",
+        "description": "What would you like to change?",
+        "menu_options": {
+          "instellingen": "Settings – battery, prices, forecasts, inverter control, notifications",
+          "bronnen": "Data sources – SOC, prices and solar forecast",
+          "meting": "P1 meter and power sensors",
+          "apparaten": "Inverters – Deye devices and Solarman entities",
+          "autolader": "Car charger (evcc) – charge in the cheapest quarters",
+          "warmtepomp": "Heat pump – shift heating to cheap and sunny hours"
+        }
+      },
+      "instellingen": {
+        "title": "Settings",
+        "description": "Changes apply immediately; the plan is recalculated after saving.",
+        "sections": {
+          "accu": {
+            "name": "Battery",
+            "description": "Physical limits of the shared battery bank and the inverters (totals for both inverters). These determine how much energy the plan can move per quarter and how much each kWh costs in losses and wear.",
+            "data": {
+              "capaciteit_kwh": "Usable battery capacity",
+              "min_soc": "Minimum SOC",
+              "max_soc": "Maximum SOC",
+              "max_laad_w": "Maximum charge power",
+              "max_ontlaad_w": "Maximum discharge power",
+              "rendement_laden": "Charge efficiency (AC → battery)",
+              "rendement_ontladen": "Discharge efficiency (battery → AC)",
+              "slijtage_eur_kwh": "Battery wear cost per discharged kWh",
+              "vermogenstrappen": "Use power steps 33 % / 66 % / 100 %",
+              "max_net_w": "Grid connection limit"
+            },
+            "data_description": {
+              "capaciteit_kwh": "Total usable capacity in kWh of all batteries together that the SOC percentage refers to.",
+              "min_soc": "The plan never discharges below this SOC. Keep it at or above the overdischarge SOC set in the inverter, otherwise the inverter stops earlier than planned.",
+              "max_soc": "The plan never charges above this SOC. Lower it (e.g. 90 %) if you want to spare the battery.",
+              "max_laad_w": "Total charge power of both inverters together (from grid and/or solar). Split evenly between the inverters.",
+              "max_ontlaad_w": "Total discharge power of both inverters together. Split evenly between the inverters.",
+              "rendement_laden": "Share of AC energy that ends up in the battery. Together with the discharge efficiency this gives the round-trip efficiency (95 % × 95 % ≈ 90 %).",
+              "rendement_ontladen": "Share of stored energy that comes back out as AC energy.",
+              "slijtage_eur_kwh": "Cost added to every discharged kWh to account for battery ageing (purchase price ÷ (cycles × capacity)). Higher value = fewer cycles: the plan only charges/discharges when the price difference covers this cost. Default € 0.03.",
+              "vermogenstrappen": "On: per quarter the plan chooses 33 %, 66 % or 100 % of the maximum charge/discharge power, so it can spread energy over more quarters and stay within the grid connection. Off: always 100 %.",
+              "max_net_w": "Planned charging, discharging and car charging never make import or export exceed this power. 3 × 25 A ≈ 17,000 W."
+            }
+          },
+          "prijzen": {
+            "name": "Prices and feed-in",
+            "description": "How electricity you export to the grid is valued. This decides whether discharging to the grid during expensive morning or evening peaks pays off.",
+            "data": {
+              "saldering": "Net metering (salderingsregeling)",
+              "saldering_correctie": "Feed-in deduction while net metering",
+              "teruglever_opslag": "Feed-in premium without net metering",
+              "eindwaarde_factor": "Value of remaining charge at the end of the plan",
+              "export_blokkeren_negatief": "Stop exporting at negative feed-in prices"
+            },
+            "data_description": {
+              "saldering": "Automatic: until 31-12-2026 exported energy is worth the full import price of that quarter (net metering): the plan maximises payback by exporting at expensive quarters. From 1-1-2027 market price + premium: the plan automatically switches to lowest cost (self-consumption first). Decided per quarter, so the turn of the year is handled correctly.",
+              "saldering_correctie": "Amount subtracted from the import price to get the feed-in value while net metering applies. Normally 0.",
+              "teruglever_opslag": "Amount added to the market price for exported energy once net metering has ended. Frank Energie: € 0.0182/kWh.",
+              "eindwaarde_factor": "Energy still in the battery at the end of the known prices is valued at the 75th-percentile price of the last 24 hours × this factor (never more than the cheapest price in the last 4 hours). Higher = keep more charge for the next day; lower = discharge more before the horizon ends.",
+              "export_blokkeren_negatief": "When the feed-in price of a quarter is negative (from 2027 at market price), switch off Export Surplus / Solar Sell so you don't pay for exporting. Solar then only feeds the house, battery and car."
+            }
+          },
+          "voorspelling": {
+            "name": "Forecasts",
+            "description": "Corrections for the solar and consumption forecasts the plan is based on.",
+            "data": {
+              "pv_factor": "Solar forecast correction factor",
+              "verbruik_fallback_w": "Consumption used before the profile is learned"
+            },
+            "data_description": {
+              "pv_factor": "The solar forecast is multiplied by this factor. Below 1 = more cautious (less grid charging because less sun is expected to fill the battery). Default 0.9.",
+              "verbruik_fallback_w": "Average household consumption in W used for hours that have not been measured yet. After a few days the learned profile takes over."
+            }
+          },
+          "omvormer": {
+            "name": "Inverter control",
+            "description": "How the plan is translated into Deye settings. Options are read from the selects of inverter 1.",
+            "data": {
+              "accu_spanning": "Nominal battery voltage",
+              "werkmodus_zelfverbruik": "Work Mode for self-consumption, charge and hold",
+              "werkmodus_ontladen": "Work Mode while discharging to the grid",
+              "programma_laden_aan": "Program Charging option for grid charging",
+              "programma_laden_uit": "Program Charging option when not grid charging",
+              "time_of_use_aan": "Time of Use option that enables the programs"
+            },
+            "data_description": {
+              "accu_spanning": "Used to convert power to Battery Grid Charging Current (5000 W ÷ 51.2 V = 97 A). 48 V LFP: 51.2 V.",
+              "werkmodus_zelfverbruik": "Normally **Zero Export To CT** (CT clamp on the grid connection).",
+              "werkmodus_ontladen": "Normally **Export First** (selling first).",
+              "programma_laden_aan": "Normally **Grid**.",
+              "programma_laden_uit": "Normally **Disabled**.",
+              "time_of_use_aan": "Normally **Enabled** (or **Week**, depending on the Solarman version)."
+            }
+          },
+          "meldingen": {
+            "name": "Notifications",
+            "description": "Optional daily message with tomorrow's plan.",
+            "data": {
+              "notify_service": "Send tomorrow's plan to"
+            },
+            "data_description": {
+              "notify_service": "Notify service (e.g. your phone via `notify.mobile_app_…`). As soon as Frank publishes tomorrow's prices (around 13:00–14:00) you receive the planned charge, hold and discharge blocks and the expected saving."
+            }
+          }
+        }
+      },
+      "bronnen": {
+        "title": "Data sources",
+        "description": "Select the sensors the planner reads. Suggested entities are pre-filled when they exist.\n\nThe planner uses today's and tomorrow's 15-minute Frank Energie prices, the solar forecast and your learned consumption to choose for every quarter whether the battery should run in self-consumption, hold, charge or discharge, and at 33 %, 66 % or 100 % power.",
+        "data": {
+          "soc_entity": "Battery SOC",
+          "prijs_vandaag_entity": "Frank prices – today",
+          "prijs_morgen_entity": "Frank prices – tomorrow",
+          "pv_rest_vandaag_entity": "Solar forecast – remaining today",
+          "pv_morgen_entity": "Solar forecast – tomorrow",
+          "solcast_vandaag_entity": "Solcast forecast – today (optional)",
+          "solcast_morgen_entity": "Solcast forecast – tomorrow (optional)"
+        },
+        "data_description": {
+          "soc_entity": "State of charge of the shared battery bank in %. Solarman (Deye): **Battery** or **Battery SOC** of the master inverter.",
+          "prijs_vandaag_entity": "Frank Quarter Prices sensor with today's 15-minute prices in its `prices` attribute (e.g. `sensor.frank_prices_today`). Not the current-price sensor.",
+          "prijs_morgen_entity": "Frank Quarter Prices sensor with tomorrow's prices (e.g. `sensor.frank_prices_tomorrow`). Frank publishes these around 13:00–14:00; as soon as they arrive the plan is recalculated for the full horizon.",
+          "pv_rest_vandaag_entity": "Expected solar production for the rest of today in kWh or Wh. Forecast.Solar: **Estimated energy production - remaining today**. Spread over the remaining quarters using the sun's position.",
+          "pv_morgen_entity": "Expected solar production for tomorrow in kWh or Wh. Forecast.Solar: **Estimated energy production - tomorrow**.",
+          "solcast_vandaag_entity": "Only if you use Solcast: the sensor with the `detailedForecast` attribute for today. When filled in, Solcast is used instead of the Forecast.Solar sensors above.",
+          "solcast_morgen_entity": "Only if you use Solcast: the sensor with the `detailedForecast` attribute for tomorrow."
+        }
+      },
+      "meting": {
+        "title": "P1 meter and power sensors",
+        "description": "The P1 meter (DSMR / HomeWizard) measures what really goes in and out of your grid connection. Together with the solar and battery power of the Deye inverters, the planner calculates the household consumption it learns per hour, and the real cost per quarter.",
+        "data": {
+          "p1_vermogen_entity": "P1 – power consumption (import)",
+          "p1_teruglever_vermogen_entity": "P1 – power production (export)",
+          "p1_afname_kwh_entities": "P1 – energy consumption meters (kWh)",
+          "p1_teruglever_kwh_entities": "P1 – energy production meters (kWh)",
+          "load_entities": "Household load power (optional)",
+          "pv_vermogen_entities": "Solar power of the inverters",
+          "accu_vermogen_entities": "Battery power of the inverters"
+        },
+        "data_description": {
+          "p1_vermogen_entity": "Current import power in W or kW (DSMR: **Power consumption**). If your meter has a single net-power sensor (import positive, export negative), choose that one and leave the export field empty.",
+          "p1_teruglever_vermogen_entity": "Current export power in W or kW (DSMR: **Power production**). Leave empty if the sensor above is already net power.",
+          "p1_afname_kwh_entities": "Meter readings for imported energy (DSMR: **Energy consumption (tarif 1)** and **(tarif 2)**; select both). Used to calculate the real cost with the Frank price of each quarter. Optional.",
+          "p1_teruglever_kwh_entities": "Meter readings for exported energy (DSMR: **Energy production (tarif 1)** and **(tarif 2)**).",
+          "load_entities": "Only if you prefer the inverters' own measurement: Solarman **Load Power** of each inverter (summed). Leave empty to calculate household consumption from the P1 meter: grid + solar + battery.",
+          "pv_vermogen_entities": "Solarman **PV Power** of each Deye inverter (W). Summed.",
+          "accu_vermogen_entities": "Solarman **Battery Power** of each Deye inverter (W, positive = discharging, negative = charging). Summed."
+        }
+      },
+      "apparaten": {
+        "title": "Inverters",
+        "description": "Choose the Deye inverter device(s) from the Solarman integration. With two SUN-12K-SG05LP3 in parallel, choose the master as inverter 1 and the slave as inverter 2. On the next screen the planner pre-fills the entities it finds on these devices.",
+        "data": {
+          "omv1_device": "Inverter 1 (master)",
+          "omv2_device": "Inverter 2 (optional)"
+        },
+        "data_description": {
+          "omv1_device": "The Solarman device of the first Deye inverter.",
+          "omv2_device": "The Solarman device of the second inverter in a parallel system. Leave empty with a single inverter."
+        }
+      },
+      "omvormer": {
+        "title": "Inverter entities (Solarman)",
+        "description": "Nothing is written to the inverters until you switch on **Control inverter** on the Battery Planner Deye device. Values are only written when they change.",
+        "sections": {
+          "omvormer_1": {
+            "name": "Inverter 1",
+            "description": "Entities found on the device are pre-filled. Check them; tip: Developer tools → States, filter on `program_`.",
+            "data": {
+              "programma_soc": "Program 1–6 SOC",
+              "programma_vermogen": "Program 1–6 Power",
+              "programma_laden": "Program 1–6 Charging",
+              "werkmodus": "Work Mode",
+              "time_of_use": "Time of Use (optional)",
+              "solar_sell": "Export Surplus / Solar Sell (optional)",
+              "netlaadstroom": "Battery Grid Charging Current (optional)"
+            },
+            "data_description": {
+              "programma_soc": "All six **Program N SOC** number entities. The planner writes the same target SOC in all six, so the program times do not matter and are left as they are.",
+              "programma_vermogen": "All six **Program N Power** number entities (maximum battery discharge power in that program).",
+              "programma_laden": "All six **Program N Charging** selects (Disabled / Grid / Generator / Both). Set to Grid while the plan charges from the grid.",
+              "werkmodus": "**Work Mode** select. *Zero Export To CT* for self-consumption, charge and hold; *Export First* while discharging to the grid.",
+              "time_of_use": "**Time of Use** select or switch. The planner makes sure it is enabled, otherwise the programs are ignored.",
+              "solar_sell": "**Export Surplus** (Solar Sell) switch. Switched off during quarters with a negative feed-in price, if that option is on.",
+              "netlaadstroom": "**Battery Grid Charging Current** (A). Sets the charge power step (33 / 66 / 100 %) while charging from the grid."
+            }
+          },
+          "omvormer_2": {
+            "name": "Inverter 2",
+            "description": "Entities found on the device are pre-filled. Check them; tip: Developer tools → States, filter on `program_`.",
+            "data": {
+              "programma_soc": "Program 1–6 SOC",
+              "programma_vermogen": "Program 1–6 Power",
+              "programma_laden": "Program 1–6 Charging",
+              "werkmodus": "Work Mode",
+              "time_of_use": "Time of Use (optional)",
+              "solar_sell": "Export Surplus / Solar Sell (optional)",
+              "netlaadstroom": "Battery Grid Charging Current (optional)"
+            },
+            "data_description": {
+              "programma_soc": "All six **Program N SOC** number entities. The planner writes the same target SOC in all six, so the program times do not matter and are left as they are.",
+              "programma_vermogen": "All six **Program N Power** number entities (maximum battery discharge power in that program).",
+              "programma_laden": "All six **Program N Charging** selects (Disabled / Grid / Generator / Both). Set to Grid while the plan charges from the grid.",
+              "werkmodus": "**Work Mode** select. *Zero Export To CT* for self-consumption, charge and hold; *Export First* while discharging to the grid.",
+              "time_of_use": "**Time of Use** select or switch. The planner makes sure it is enabled, otherwise the programs are ignored.",
+              "solar_sell": "**Export Surplus** (Solar Sell) switch. Switched off during quarters with a negative feed-in price, if that option is on.",
+              "netlaadstroom": "**Battery Grid Charging Current** (A). Sets the charge power step (33 / 66 / 100 %) while charging from the grid."
+            }
+          }
+        }
+      },
+      "autolader": {
+        "title": "Car charger (evcc)",
+        "description": "Optional. Plans car charging in the cheapest quarters before departure and switches the evcc charge mode. The planned charging counts in the battery plan, so the home battery is not drained into the car when that doesn't pay off. Nothing is written until you switch on **Control car charger**.",
+        "data": {
+          "ev_ingeschakeld": "Use the car charger module"
+        },
+        "data_description": {
+          "ev_ingeschakeld": "Off: no car entities and nothing is planned for the car."
+        },
+        "sections": {
+          "apparaten": {
+            "name": "evcc entities",
+            "description": "Entities of the evcc integration for the loadpoint of the Radian Neo.",
+            "data": {
+              "ev_modus_entity": "Charge mode",
+              "ev_verbonden_entity": "Car connected (optional)",
+              "ev_soc_entity": "Car SOC",
+              "ev_vermogen_entity": "Charge power (optional)",
+              "ev_doel_soc_entity": "Target SOC (optional)"
+            },
+            "data_description": {
+              "ev_modus_entity": "evcc **Mode** select of the loadpoint (off / pv / minpv / now).",
+              "ev_verbonden_entity": "evcc **Vehicle connected** binary sensor. Without it the car counts as connected when its SOC is known.",
+              "ev_soc_entity": "evcc **Vehicle SoC** sensor (%).",
+              "ev_vermogen_entity": "evcc **Charge power** sensor. Subtracted from household consumption so the profile does not learn the car.",
+              "ev_doel_soc_entity": "evcc **Limit SoC** / target SoC. When filled in it overrides the target SOC below."
+            }
+          },
+          "regeling": {
+            "name": "Charging",
+            "description": "How much and until when.",
+            "data": {
+              "ev_capaciteit_kwh": "Car battery capacity",
+              "ev_laadvermogen_w": "Charge power",
+              "ev_rendement": "Charging efficiency",
+              "ev_doel_soc": "Target SOC",
+              "ev_vertrek": "Departure time",
+              "ev_noodlaad_soc": "Always charge below",
+              "ev_modus_laden": "evcc mode in planned quarters",
+              "ev_modus_wachten": "evcc mode outside planned quarters"
+            },
+            "data_description": {
+              "ev_capaciteit_kwh": "Usable battery capacity of the car in kWh.",
+              "ev_laadvermogen_w": "Charge power of the Radian Neo with this car (3 × 16 A ≈ 11,000 W).",
+              "ev_rendement": "Share of grid energy that ends up in the car.",
+              "ev_doel_soc": "Car SOC to reach before departure.",
+              "ev_vertrek": "The car must be at the target SOC by this time (next occurrence).",
+              "ev_noodlaad_soc": "Below this car SOC the planner charges immediately, regardless of price.",
+              "ev_modus_laden": "Normally **now** (fast charging).",
+              "ev_modus_wachten": "Normally **pv** (only solar surplus). Use **off** to never charge outside planned quarters."
+            }
+          }
+        }
+      },
+      "warmtepomp": {
+        "title": "Heat pump (buffer tank setpoint)",
+        "description": "Optional. Raises the buffer tank setpoint of the heat pump when electricity is cheap or there is a solar surplus, and lowers it when electricity is expensive. Alternatively switch an SG Ready contact (relay) on in cheap and sunny quarters, so the heat pump's weather compensation can stay on. Nothing is written until you switch on **Control heat pump**.",
+        "sections": {
+          "apparaten": {
+            "name": "Devices",
+            "description": "Entities of the heat pump (Tuya) and the room thermostat.",
+            "data": {
+              "wp_setpoint_entity": "Buffer tank setpoint or SG Ready contact",
+              "wp_buffer_temp_entity": "Buffer tank temperature (optional)",
+              "wp_buiten_temp_entity": "Outdoor temperature (optional)",
+              "wp_thermostaat_entity": "Room thermostat (optional)"
+            },
+            "data_description": {
+              "wp_setpoint_entity": "Climate, water_heater or number entity for the buffer tank target temperature (Tuya Local / Tuya), or a switch / input_boolean for an SG Ready relay (on = raise by the heat pump's SG diff, e.g. +2 °C).",
+              "wp_buffer_temp_entity": "Actual buffer tank temperature. Only shown for information on the dashboard.",
+              "wp_buiten_temp_entity": "Outdoor temperature sensor (heat pump, weather station or weather integration sensor). Needed for the heating curve.",
+              "wp_thermostaat_entity": "Resideo/Honeywell T6 climate entity. When it reports hvac_action 'heating' (heat demand → circulation pump on), the setpoint is not lowered during expensive hours (see 'Don't lower during heat demand')."
+            }
+          },
+          "regeling": {
+            "name": "Control",
+            "description": "How far and when the buffer tank setpoint is shifted. K (kelvin) is a temperature difference: +3 K means 3 °C higher than the normal setpoint.",
+            "data": {
+              "wp_basis_temp": "Normal setpoint",
+              "wp_verhoging": "Raise when cheap or sunny (K = °C difference)",
+              "wp_verlaging": "Lower when expensive (K = °C difference)",
+              "wp_min_temp": "Minimum setpoint",
+              "wp_max_temp": "Maximum setpoint",
+              "wp_goedkoop_aandeel": "Cheap = cheapest share of the next 24 h",
+              "wp_duur_aandeel": "Expensive = most expensive share of the next 24 h",
+              "wp_stooklijn": "Heating curve",
+              "wp_pv_overschot_w": "Solar surplus for raising",
+              "wp_pv_min_soc": "Only use solar surplus above home battery SOC",
+              "wp_niet_verlagen_bij_vraag": "Don't lower during heat demand",
+              "wp_min_minuten": "Minimum time between changes"
+            },
+            "data_description": {
+              "wp_basis_temp": "Buffer tank setpoint at average prices – use the temperature the heat pump runs at now (e.g. 25 °C for low-temperature floor heating). With a heating curve this is the value at 15 °C outdoors.",
+              "wp_verhoging": "Degrees added to the normal setpoint during cheap quarters or solar surplus (normal 25 °C + 3 K = 28 °C). The buffer and the house store the extra heat. Every extra degree costs roughly 2–3 % heat pump efficiency (COP), so keep this modest.",
+              "wp_verlaging": "Degrees subtracted from the normal setpoint during expensive quarters (normal 25 °C − 3 K = 22 °C), so the heat pump pauses and the buffer and house use stored heat.",
+              "wp_min_temp": "The setpoint never goes below this (comfort limit). Make sure the radiators/floor heating still get warm enough at this temperature.",
+              "wp_max_temp": "The setpoint never goes above this (heat pump and system limit).",
+              "wp_goedkoop_aandeel": "A quarter counts as cheap when its price is among this share of the cheapest quarters of the next 24 hours (based on the Frank prices also used for the battery).",
+              "wp_duur_aandeel": "A quarter counts as expensive when its price is among this share of the most expensive quarters of the next 24 hours.",
+              "wp_stooklijn": "Optional weather compensation: Kelvin added to the normal setpoint per °C the outdoor temperature is below 15 °C. 0 = off (use the heat pump's own curve).",
+              "wp_pv_overschot_w": "Raise the setpoint when the solar surplus (export on the P1 meter + battery charging power) is at least this many watts.",
+              "wp_pv_min_soc": "Solar surplus is only used for the heat pump once the home battery is at least this full, so the battery is filled first.",
+              "wp_niet_verlagen_bij_vraag": "When on, the setpoint is not lowered while the room thermostat is calling for heat, to protect comfort.",
+              "wp_min_minuten": "Minimum time between two setpoint changes, to avoid short cycling of the heat pump and too many Tuya cloud commands."
+            }
+          }
+        },
+        "data": {
+          "wp_ingeschakeld": "Use the heat pump module"
+        },
+        "data_description": {
+          "wp_ingeschakeld": "Off: no heat pump entities and nothing is written to the heat pump."
+        }
+      }
+    },
+    "error": {
+      "niet_gevonden": "Entity not found.",
+      "geen_getal": "This sensor does not have a numeric value. Choose the Battery SOC sensor (%).",
+      "geen_prijzen": "This sensor has no 'prices' attribute. Choose the Frank Quarter Prices sensor for today's prices (e.g. sensor.frank_prices_today), not the current-price sensor.",
+      "soc_bereik": "Minimum SOC must be lower than maximum SOC.",
+      "omvormer_onvolledig": "Inverter 1 needs at least the Program SOC entities and the Work Mode.",
+      "ev_modus_nodig": "Choose the evcc charge mode entity to use the car charger module.",
+      "wp_bereik": "Minimum setpoint must be lower than maximum setpoint.",
+      "wp_setpoint_nodig": "Choose the setpoint or SG Ready entity to use the heat pump module."
+    }
+  },
+  "selector": {
+    "saldering": {
+      "options": {
+        "auto": "Automatic – net metering until end of 2026, then market price + premium",
+        "aan": "Always net metering",
+        "uit": "Never – market price + premium"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "modus": {
+        "name": "Mode",
+        "state": {
+          "zelfverbruik": "Self-consumption",
+          "vasthouden": "Hold",
+          "laden": "Charge",
+          "ontladen": "Discharge"
+        }
+      },
+      "vermogen_pct": {
+        "name": "Power step"
+      },
+      "strategie": {
+        "name": "Strategy",
+        "state": {
+          "terugverdienen": "Maximise payback (net metering)",
+          "laagste_kosten": "Lowest cost"
+        }
+      },
+      "besparing": {
+        "name": "Expected saving"
+      },
+      "volgende_actie": {
+        "name": "Next action"
+      },
+      "doel_soc": {
+        "name": "Target SOC end of block"
+      },
+      "verbruiksprofiel": {
+        "name": "Learned consumption last quarter"
+      },
+      "kosten_vandaag": {
+        "name": "Electricity cost today"
+      },
+      "kosten_maand": {
+        "name": "Electricity cost this month"
+      },
+      "kosten_totaal": {
+        "name": "Electricity cost total"
+      },
+      "auto": {
+        "name": "Car charging",
+        "state": {
+          "laden": "Charging",
+          "wachten": "Waiting",
+          "niet_verbonden": "Not connected"
+        }
+      },
+      "wp_doel": {
+        "name": "Heat pump target temperature"
+      }
+    },
+    "switch": {
+      "sturing": {
+        "name": "Control inverter"
+      },
+      "ev_sturing": {
+        "name": "Control car charger"
+      },
+      "wp_sturing": {
+        "name": "Control heat pump"
+      }
+    },
+    "button": {
+      "herbereken": {
+        "name": "Recalculate plan"
+      }
+    }
+  }
+}

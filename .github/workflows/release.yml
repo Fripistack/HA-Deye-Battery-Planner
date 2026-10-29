@@ -1,0 +1,40 @@
+name: Release
+
+# Maakt bij elke push naar main automatisch een GitHub-release aan voor de
+# versie in manifest.json (als die release nog niet bestaat). HACS toont dan
+# versienummers (bijv. v5.0.1) in plaats van commitcodes.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versie lezen en controleren
+        id: versie
+        run: |
+          versie=$(jq -r .version custom_components/batterij_planner_deye/manifest.json)
+          echo "versie=$versie" >> "$GITHUB_OUTPUT"
+          if ! grep -q "^\*\*Versie: $versie\*\*" README.md; then
+            echo "::error::README.md vermeldt niet 'Versie: $versie' (manifest.json)"; exit 1
+          fi
+
+      - name: Release maken als die nog niet bestaat
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSIE: ${{ steps.versie.outputs.versie }}
+        run: |
+          tag="v$VERSIE"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag bestaat al, niets te doen."; exit 0
+          fi
+          awk -v v="$VERSIE" '$0 == "### " v {f=1; next} /^##/ {f=0} f' README.md > notities.md
+          [ -s notities.md ] || echo "Versie $tag" > notities.md
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notities.md
