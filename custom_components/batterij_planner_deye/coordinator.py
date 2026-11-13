@@ -108,6 +108,8 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.ev_laatste_actie: str | None = None
         self.profiel = VerbruiksProfiel(hass, entry.entry_id, float(self.conf["verbruik_fallback_w"]))
         self._kosten_store: Store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.kosten")
+        self._modus_store: Store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.gebruiksmodus")
+        self.gebruiksmodus: str = optimizer.GEBRUIKSMODI[0]
         self.kosten: dict[str, Any] = {}
         self._prijs_kwartier: tuple[float, float] | None = None
         self._lock = asyncio.Lock()
@@ -156,6 +158,9 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # ------------------------------------------------------------------ levensloop
     async def async_start(self) -> None:
         await self.profiel.async_load()
+        opgeslagen = await self._modus_store.async_load() or {}
+        if opgeslagen.get("modus") in optimizer.GEBRUIKSMODI:
+            self.gebruiksmodus = opgeslagen["modus"]
         self.kosten = await self._kosten_store.async_load() or {}
         self.profiel.meting(self.huisverbruik_w(), dt_util.now())
         self._unsubs.append(
@@ -171,6 +176,18 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._unsubs.append(
                 async_track_state_change_event(self.hass, [self.conf[CONF_PRIJS_MORGEN]], self._prijzen_event)
             )
+
+    async def async_zet_gebruiksmodus(self, modus: str) -> None:
+        """Gebruiksmodus wijzigen (select-entiteit); wordt bewaard over herstarts."""
+        if modus not in optimizer.GEBRUIKSMODI:
+            raise ValueError(modus)
+        self.gebruiksmodus = modus
+        await self._modus_store.async_save({"modus": modus})
+        await self.async_request_refresh()
+
+    def pv_vermogen_w(self) -> float | None:
+        ids = _lijst(self.conf.get(CONF_PV_VERMOGEN))
+        return self._som_watt(ids) if ids else None
 
     async def async_stop(self) -> None:
         for unsub in self._unsubs:
@@ -278,6 +295,8 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @callback
     def _tik_kwartier(self, now: datetime) -> None:
         self.profiel.afsluiten(now)
+        # ook zonder statuswijziging (bijv. 's nachts 0 W) elke 15 min een PV-meetpunt
+        self.profiel.pv_meting(self.pv_vermogen_w(), now)
         if self.conf.get(CONF_P1_AFNAME_KWH):
             self._kosten_bijwerken(now)
         d = self.data or {}
@@ -290,7 +309,10 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _meet_event(self, _event: Event[EventStateChangedData]) -> None:
-        self.profiel.meting(self.huisverbruik_w(), dt_util.now())
+        nu = dt_util.now()
+        self.profiel.meting(self.huisverbruik_w(), nu)
+        if self.conf.get(CONF_PV_VERMOGEN):
+            self.profiel.pv_meting(self.pv_vermogen_w(), nu)
 
     @callback
     def _prijzen_event(self, event: Event[EventStateChangedData]) -> None:
@@ -352,6 +374,10 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 waarden[k] = bool(v)
             else:
                 waarden[k] = float(v)
+        waarden["gebruiksmodus"] = self.gebruiksmodus
+        waarden["verbruik_marge"] = self.profiel.verbruik_marge
+        if self.conf.get(CONF_PV_VERMOGEN):
+            waarden["pv_zeker_factor"] = self.profiel.pv_zeker_factor
         return optimizer.Instellingen(**waarden)
 
     def _kwh(self, entity_id: str | None) -> float:
@@ -410,7 +436,14 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise PlanFout("No prices available")
 
         optimizer.zet_terugleverprijs(slots, inst)
-        optimizer.zet_verbruik(slots, self.profiel.werkdag, self.profiel.weekend, inst.verbruik_fallback_w)
+        per_dag = self.profiel.profiel_per_dag()
+        optimizer.zet_verbruik(slots, self.profiel.werkdag, self.profiel.weekend, inst.verbruik_fallback_w, per_dag)
+        # verwacht verbruik in de 6 uur na het eind van de horizon (wat de accu dan nog moet leveren)
+        eind = slots[-1].eind
+        inst.reserve_na_horizon_kwh = sum(
+            per_dag[(eind + timedelta(hours=h)).weekday()][(eind + timedelta(hours=h)).hour] / 1000.0
+            for h in range(6)
+        )
 
         solcast = self._attr_lijst(self.conf.get(CONF_SOLCAST_VANDAAG), "detailedForecast") + self._attr_lijst(
             self.conf.get(CONF_SOLCAST_MORGEN), "detailedForecast"
@@ -432,6 +465,11 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     zon[d] = (dt_util.as_local(op), dt_util.as_local(onder))
             optimizer.zet_pv_verdeeld(slots, totalen, zon, inst.pv_factor)
 
+        if self.conf.get(CONF_PV_VERMOGEN):
+            # PV-voorspelling van vandaag vastleggen om de zekerheidsfactor te leren
+            ruw = sum(s.pv for s in slots if s.start.date() == nu.date()) / max(0.05, inst.pv_factor)
+            self.profiel.pv_voorspelling(nu.date(), ruw, hele_dag=nu.hour == 0 and nu.minute < 30)
+
         ev_plan = None
         if self.ev_ingeschakeld:
             ev_plan = self._ev_plan(nu, slots)
@@ -439,6 +477,7 @@ class BatterijPlannerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         resultaat = await self.hass.async_add_executor_job(optimizer.optimaliseer, slots, soc, inst)
         resultaat["pv_bron"] = pv_bron
+        resultaat["leren"] = self.profiel.status()
         resultaat["huisverbruik_w"] = self.huisverbruik_w()
         if ev_plan is not None:
             resultaat["auto"] = {
