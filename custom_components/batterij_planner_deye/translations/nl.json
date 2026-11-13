@@ -523,6 +523,9 @@
       },
       "wp_doel": {
         "name": "Heat pump target temperature"
+      },
+      "benodigd": {
+        "name": "Energy needed from battery"
       }
     },
     "switch": {
@@ -539,6 +542,15 @@
     "button": {
       "herbereken": {
         "name": "Recalculate plan"
+      }
+    },
+    "select": {
+      "gebruiksmodus": {
+        "name": "Use mode",
+        "state": {
+          "optimaal": "Lowest cost (incl. discharging to grid)",
+          "inkopen_zelfverbruik": "Buy cheap, keep for self-use"
+        }
       }
     }
   }

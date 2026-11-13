@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from conftest import laad
+from conftest import laad, laad_profiel
 
 optimizer = laad("optimizer")
 ev = laad("ev")
@@ -122,3 +122,83 @@ def test_warmtepomp_goedkoop_boost():
     inst = warmtepomp.WpInstellingen()
     b = warmtepomp.bepaal(inst, 0.10, [0.10] + [0.30] * 95)
     assert b.stand == warmtepomp.BOOST
+
+
+# ---------------------------------------------------------------- inkopen voor zelfverbruik
+def _zelf(prijzen, verbruik_w=500, cap=20.0, soc=10.0, start=datetime(2027, 1, 5, 0, 0, tzinfo=TZ)):
+    slots, inst = _slots(prijzen, start=start, verbruik_w=verbruik_w)
+    inst.capaciteit_kwh = cap
+    inst.gebruiksmodus = "inkopen_zelfverbruik"
+    inst.verbruik_marge = 1.0
+    return slots, inst, optimizer.optimaliseer(slots, soc, inst)
+
+
+def test_zelfverbruik_nooit_ontladen_naar_net():
+    # ook met saldering (waar ontladen in optimaal wel loont) wordt nooit ontladen
+    prijzen = [0.10] * 16 + [0.40] * 16 + [0.25] * 64
+    slots, inst, res = _zelf(prijzen, start=datetime(2026, 11, 2, 0, 0, tzinfo=TZ))
+    assert all(s[1] != "O" for s in res["slots"])
+    assert any(s[1] == "L" for s in res["slots"][:16])
+    assert res["gebruiksmodus"] == "inkopen_zelfverbruik"
+
+
+def test_zelfverbruik_laadt_niet_meer_dan_nodig():
+    # 500 W × 24 h = 12 kWh verbruik; accu van 40 kWh mag niet vol uit het net
+    prijzen = [0.05] * 8 + [0.40] * 88
+    slots, inst, res = _zelf(prijzen, cap=40.0)
+    eta_c = inst.rendement_laden / 100
+    eta_d = inst.rendement_ontladen / 100
+    nodig = sum(s.verbruik for s in slots[8:]) / eta_d + inst.reserve_na_horizon_kwh
+    max_soc = max(s[2] for s in res["slots"])
+    geladen = (max_soc - 10.0) / 100 * 40.0
+    # marge: verbruik tijdens de laadkwartieren zelf telt in het plafond nog mee
+    assert geladen <= nodig + 1.0, (geladen, nodig)
+    assert geladen >= nodig * 0.8, (geladen, nodig)
+    assert res["netladen_gepland_kwh"] > 0
+    assert eta_c > 0
+    # ter vergelijking: met een veel hoger verbruik laadt hij wel verder
+    _, _, meer = _zelf(prijzen, verbruik_w=1200, cap=40.0)
+    assert max(s[2] for s in meer["slots"]) > max_soc + 10
+
+
+def test_zelfverbruik_houdt_vast_voor_dure_uren():
+    # accu vol, nacht matig geprijsd, ochtend duur: energie bewaren voor de dure uren
+    prijzen = [0.20] * 24 + [0.45] * 16 + [0.20] * 56
+    slots, inst, res = _zelf(prijzen, verbruik_w=1000, soc=40.0)
+    modi = [s[1] for s in res["slots"][:24]]
+    assert "V" in modi
+
+
+def test_zelfverbruik_schaalt_met_accu_en_verbruik():
+    prijzen = [0.05] * 8 + [0.40] * 88
+    _, _, klein = _zelf(prijzen, verbruik_w=300, cap=40.0)
+    _, _, groot = _zelf(prijzen, verbruik_w=900, cap=40.0)
+    assert groot["benodigd_kwh"] > klein["benodigd_kwh"] * 2
+    _, _, kleine_accu = _zelf(prijzen, verbruik_w=900, cap=5.0)
+    assert kleine_accu["benodigd_kwh"] <= 5.0 * 0.9 + 1e-6
+
+
+def test_benodigde_energie_pv_vult_aan():
+    # tekort 2 kWh, dan 3 kWh PV-overschot, dan tekort 1 kWh
+    r = optimizer.benodigde_energie([2, 0, 1], [0, 3, 0], 1.0, 1.0, 0.0, 100.0)
+    assert r == [2.0, 0.0, 1.0, 0.0]
+    r = optimizer.benodigde_energie([1, 1], [0, 0], 1.0, 0.5, 0.0, 3.0)
+    assert r[0] == 3.0  # begrensd op de ruimte
+
+
+def test_profiel_per_dag_voor_werkdag():
+    slots, inst = _slots([0.2] * 8)
+    per_dag = [[100.0] * 24 for _ in range(7)]
+    per_dag[0] = [2000.0] * 24  # maandag
+    optimizer.zet_verbruik(slots, [500.0] * 24, [500.0] * 24, 500, per_dag)
+    assert abs(slots[0].verbruik * 4 / slots[0].frac - 2.0) < 1e-6
+
+
+def test_leren_marge_en_pv():
+    profiel = laad_profiel()
+    assert profiel.leer_marge([]) == profiel.MARGE_STANDAARD
+    assert profiel.leer_marge([1.0, 1.0, 1.0, 1.0, 1.4]) > 1.0
+    assert profiel.leer_marge([0.5] * 10) == 1.0
+    assert profiel.leer_marge([3.0] * 10) == 1.5
+    assert profiel.leer_pv_factor([1.0, 0.6, 0.9, 1.1]) < 0.9
+    assert profiel.leer_pv_factor([0.1] * 5) == profiel.PV_MIN

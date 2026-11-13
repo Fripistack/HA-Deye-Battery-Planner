@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
-from homeassistant.const import UnitOfPower
+from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -30,7 +30,7 @@ async def async_setup_entry(
     c = entry.runtime_data
     entiteiten: list[SensorEntity] = [
         ModusSensor(c), VermogenSensor(c), StrategieSensor(c), BesparingSensor(c), VolgendeActieSensor(c),
-        DoelSocSensor(c), VerbruikSensor(c),
+        DoelSocSensor(c), VerbruikSensor(c), BenodigdSensor(c),
         KostenSensor(c, "kosten_vandaag"), KostenSensor(c, "kosten_maand"), KostenSensor(c, "kosten_totaal"),
     ]
     if c.ev_ingeschakeld:
@@ -46,7 +46,7 @@ class ModusSensor(BatterijPlannerEntity, SensorEntity):
     _attr_translation_key = "modus"
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = list(MODI)
-    _unrecorded_attributes = frozenset({"blokken", "slots"})
+    _unrecorded_attributes = frozenset({"blokken", "slots", "leren"})
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "modus")
@@ -65,6 +65,7 @@ class ModusSensor(BatterijPlannerEntity, SensorEntity):
         sleutels = (
             "fout", "vermogen_pct", "strategie", "blok_einde", "soc_nu", "soc_doel_einde_blok", "kosten_plan",
             "kosten_zelfverbruik", "doorvoer_kwh", "horizon_einde", "kwartieren", "restwaarde_eur_kwh", "pv_bron",
+            "gebruiksmodus", "benodigd_kwh", "benodigd_soc", "netladen_gepland_kwh", "leren",
             "pv_verwacht_kwh", "verbruik_verwacht_kwh", "auto_gepland_kwh", "afnameprijs_nu", "terugprijs_nu",
             "huisverbruik_w", "net_w", "deye_doel", "sturing_actief", "bijgewerkt", "blokken", "slots",
         )
@@ -168,6 +169,7 @@ class VerbruikSensor(BatterijPlannerEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_icon = "mdi:chart-bell-curve"
+    _unrecorded_attributes = frozenset({"profiel_per_dag", "metingen_per_dag"})
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "verbruiksprofiel")
@@ -180,7 +182,34 @@ class VerbruikSensor(BatterijPlannerEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         p = self.coordinator.profiel
         return {"profiel_werkdag": p.werkdag, "profiel_weekend": p.weekend,
-                "metingen_werkdag": p.n_werkdag, "metingen_weekend": p.n_weekend}
+                "metingen_werkdag": p.n_werkdag, "metingen_weekend": p.n_weekend,
+                "profiel_per_dag": p.per_dag, "metingen_per_dag": p.n_per_dag}
+
+
+class BenodigdSensor(BatterijPlannerEntity, SensorEntity):
+    """Zelflerend geschatte accu-inhoud die het huis tot het eind van de horizon nodig heeft."""
+
+    _attr_translation_key = "benodigd"
+    _attr_device_class = SensorDeviceClass.ENERGY_STORAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_suggested_display_precision = 1
+    _attr_icon = "mdi:battery-heart-variant"
+    _unrecorded_attributes = frozenset({"verbruik_verhoudingen", "pv_verhoudingen"})
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "benodigd")
+
+    @property
+    def native_value(self) -> float | None:
+        return (self.coordinator.data or {}).get("benodigd_kwh")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        d = self.coordinator.data or {}
+        attrs = {k: d.get(k) for k in ("benodigd_soc", "netladen_gepland_kwh", "gebruiksmodus", "horizon_einde")}
+        attrs.update(self.coordinator.profiel.status())
+        return attrs
 
 
 class KostenSensor(BatterijPlannerEntity, SensorEntity):

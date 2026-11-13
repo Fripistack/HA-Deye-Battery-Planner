@@ -1,6 +1,6 @@
 # Batterij Planner Deye voor Home Assistant
 
-**Versie: 1.0.0** · [Versiegeschiedenis](#versiegeschiedenis) · [Releases](https://github.com/Fripistack/HA-Deye-Battery-Planner/releases)
+**Versie: 1.1.0** · [Versiegeschiedenis](#versiegeschiedenis) · [Releases](https://github.com/Fripistack/HA-Deye-Battery-Planner/releases)
 
 Batterij Planner Deye is een custom integration die een thuisbatterij achter één of twee **Deye-hybride omvormers** stuurt op de dynamische kwartierprijzen van Frank Energie. Optioneel plant hij ook het laden van de **auto via evcc** en verschuift hij de **warmtepomp** naar goedkope en zonnige uren. Alles stel je in via het scherm, zonder YAML.
 
@@ -40,6 +40,35 @@ De planner zoekt altijd het plan met de **laagste netto energiekosten** over de 
 | vanaf 1-1-2027 | marktprijs + opslag | vooral eigen verbruik uit de accu, alleen terugleveren als het echt loont, export stoppen bij negatieve prijs: **laagste kosten** | Lowest cost |
 
 De overgang gaat per kwartier vanzelf, ook in de nacht van de jaarwissel. Je hoeft er niets voor om te zetten. Saldering geldt alleen tot je jaarafname; lever je over het jaar netto méér terug dan je afneemt, kies dan *Geen saldering*.
+
+## Gebruiksmodus: goedkoop inkopen voor eigen verbruik
+
+Met de keuzelijst **Use mode** kies je hoe de accu gebruikt wordt:
+
+| keuze | wat het doet |
+|---|---|
+| *Lowest cost (incl. discharging to grid)* | standaard, zoals hierboven: ook ontladen naar het net als dat loont |
+| *Buy cheap, keep for self-use* | in de goedkoopste kwartieren uit het net laden, **tot de hoeveelheid die het huis nodig heeft**, en die energie daarna vasthouden voor eigen verbruik. De accu ontlaadt nooit naar het net |
+
+In de tweede modus kiest de planner nog steeds per kwartier tussen laden, vasthouden en zelfverbruik, maar:
+
+- **nooit ontladen naar het net** (Work Mode blijft *Zero Export To CT*); zonne-overschot mag wel worden teruggeleverd;
+- **niet meer inkopen dan nodig**: laden uit het net stopt bij de *benodigde energie* (sensor *Energy needed from battery*). Dat is het verwachte verbruik tot het eind van de bekende prijzen plus de 6 uur daarna, min de zonne-energie die vrijwel zeker komt, met verliezen meegerekend. Zonne-overschot mag de accu altijd verder vullen;
+- **vasthouden voor de dure uren**: zijn de nachtprijzen gewoon en de ochtendpiek duur, dan wordt de accu 's nachts niet leeggetrokken.
+
+De keuze blijft bewaard na een herstart.
+
+### Zelflerend
+
+Er staat nergens een vaste accugrootte of een vast verbruik in; alles volgt uit de instellingen en wat de planner meet. Daardoor werkt het ook in een ander huis met een andere accu.
+
+| wat | hoe het geleerd wordt |
+|---|---|
+| verbruik per uur | per weekdag (ma t/m zo) en per werkdag/weekend, als voortschrijdend gemiddelde. Het weekdagprofiel telt mee zodra een uur 3 metingen heeft. Het schuift vanzelf mee met de seizoenen |
+| verbruiksmarge | elke dag: werkelijk verbruik ÷ voorspeld verbruik. De marge is het 80e percentiel van de laatste 21 dagen (1,0 – 1,5). Op ongeveer 4 van de 5 dagen is de geschatte hoeveelheid dan genoeg. De eerste 3 dagen: 1,1 |
+| zekerheid zonne-voorspelling | alleen als *PV power* is ingesteld: elke dag werkelijke opbrengst ÷ voorspelling. De factor is het 25e percentiel van de laatste 21 dagen (0,3 – 1,2). Zonder PV-sensor of de eerste 3 dagen: 0,8 |
+
+De geleerde waarden staan als attributen bij *Energy needed from battery*.
 
 ---
 
@@ -151,7 +180,9 @@ Altijd binnen min/max en hooguit één wijziging per 30 minuten.
 | Expected saving | € beter dan alleen zelfverbruik, over de hele bekende horizon |
 | Next action | bijv. `Discharge 66% Tue 06:45–09:00` |
 | Target SOC end of block | verwachte SOC aan het eind van het huidige blok |
-| Learned consumption last quarter | geleerd verbruik; attributen: profiel per uur |
+| Learned consumption last quarter | geleerd verbruik; attributen: profiel per uur en per weekdag |
+| Energy needed from battery | kWh die het huis tot het eind van de horizon uit de accu nodig heeft (zelflerend); attributen: SOC daarvoor, gepland netladen, geleerde marge en PV-factor |
+| Use mode | *Lowest cost* of *Buy cheap, keep for self-use* |
 | Electricity cost today / this month / total | werkelijke kosten uit de P1-meterstanden × Frank-kwartierprijs (negatief = opbrengst) |
 | Car charging | *Charging*, *Waiting* of *Not connected* (alleen met autolader-module) |
 | Heat pump target temperature | gewenste streeftemperatuur en reden (alleen met warmtepomp-module) |
@@ -178,9 +209,13 @@ logger:
 
 ## Ontwikkelen
 
-De rekenkern (`optimizer.py`, `deye.py`, `ev.py`, `warmtepomp.py`) heeft geen Home Assistant nodig. Tests: `pip install pytest && pytest tests`. Bij elke push maakt de GitHub Action een release aan voor de versie in `manifest.json`; die moet ook bovenaan deze README staan.
+De rekenkern (`optimizer.py`, `deye.py`, `ev.py`, `warmtepomp.py` en de leerfuncties in `profiel.py`) heeft geen Home Assistant nodig. Tests: `pip install pytest && pytest tests`. Bij elke push maakt de GitHub Action een release aan voor de versie in `manifest.json`; die moet ook bovenaan deze README staan.
 
 ## Versiegeschiedenis
+
+### 1.1.0
+- Nieuwe gebruiksmodus *Buy cheap, keep for self-use* (keuzelijst **Use mode**): goedkoop inkopen tot de benodigde hoeveelheid, vasthouden voor eigen verbruik, nooit ontladen naar het net.
+- Zelflerende benodigde energie: verbruiksprofiel nu ook per weekdag, geleerde verbruiksmarge en geleerde zekerheid van de zonne-voorspelling. Nieuwe sensor *Energy needed from battery*.
 
 ### 1.0.0
 - Eerste versie, afgeleid van Batterij Planner 5.2.2 (Solis).
