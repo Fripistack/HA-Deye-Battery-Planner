@@ -1,6 +1,11 @@
+<img src="custom_components/batterij_planner_deye/brand/icon.png" alt="" width="96" align="right">
+
 # Batterij Planner Deye voor Home Assistant
 
-**Versie: 1.1.0** · [Versiegeschiedenis](#versiegeschiedenis) · [Releases](https://github.com/Fripistack/HA-Deye-Battery-Planner/releases)
+**Versie: 1.1.1** · [Versiegeschiedenis](#versiegeschiedenis) · [Releases](https://github.com/Fripistack/HA-Deye-Battery-Planner/releases)
+
+[![Openen in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Fripistack&repository=HA-Deye-Battery-Planner&category=integration)
+[![Integratie toevoegen](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=batterij_planner_deye)
 
 Batterij Planner Deye is een custom integration die een thuisbatterij achter één of twee **Deye-hybride omvormers** stuurt op de dynamische kwartierprijzen van Frank Energie. Optioneel plant hij ook het laden van de **auto via evcc** en verschuift hij de **warmtepomp** naar goedkope en zonnige uren. Alles stel je in via het scherm, zonder YAML.
 
@@ -83,9 +88,12 @@ De geleerde waarden staan als attributen bij *Energy needed from battery*.
 ### 2. Integratie neerzetten
 
 **Via HACS (aanbevolen):**
-1. HACS → ⋮ rechtsboven → **Aangepaste repositories**.
-2. URL `https://github.com/Fripistack/HA-Deye-Battery-Planner`, type **Integratie** → Toevoegen.
-3. Zoek **Batterij Planner Deye** → **Downloaden**.
+1. Klik op deze knop. Home Assistant opent HACS met deze repository al ingevuld:
+
+   [![Openen in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Fripistack&repository=HA-Deye-Battery-Planner&category=integration)
+
+   Werkt de knop niet? HACS → ⋮ rechtsboven → **Aangepaste repositories**, URL `https://github.com/Fripistack/HA-Deye-Battery-Planner`, type **Integratie** → Toevoegen.
+2. Zoek **Batterij Planner Deye** → **Downloaden**.
 
 **Handmatig:** kopieer de map `custom_components/batterij_planner_deye` naar `config/custom_components/`.
 
@@ -212,6 +220,10 @@ logger:
 De rekenkern (`optimizer.py`, `deye.py`, `ev.py`, `warmtepomp.py` en de leerfuncties in `profiel.py`) heeft geen Home Assistant nodig. Tests: `pip install pytest && pytest tests`. Bij elke push maakt de GitHub Action een release aan voor de versie in `manifest.json`; die moet ook bovenaan deze README staan.
 
 ## Versiegeschiedenis
+
+### 1.1.1
+- Eigen icoon en logo (map `brand/`), die Home Assistant (recente versies) toont bij Apparaten & diensten. Het icoon staat ook bovenaan deze README.
+- README: knoppen **Openen in HACS** en **Integratie toevoegen** (my.home-assistant.io).
 
 ### 1.1.0
 - Nieuwe gebruiksmodus *Buy cheap, keep for self-use* (keuzelijst **Use mode**): goedkoop inkopen tot de benodigde hoeveelheid, vasthouden voor eigen verbruik, nooit ontladen naar het net.
